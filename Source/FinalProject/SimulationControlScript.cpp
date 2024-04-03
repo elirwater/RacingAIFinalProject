@@ -31,11 +31,26 @@ void USimulationControlScript::BeginPlay()
 
 void USimulationControlScript::runLap() {
 
-	if (AILapComponent) {
-		AILapComponent->RunLap();
+	if (AILapComponent)
+	{	
+		// If our delegate is not bound to the HandleLapCompleted function yet
+		if (!AILapComponent->OnLapCompletedDelegate.IsBound()) {
+			// Binds the HandleLapCompleted function to the Lap Component's OnLapCompleted delegate, so when this delegate is broadcast to, it calls the HandleLapCompleted function
+			AILapComponent->OnLapCompletedDelegate.AddDynamic(this, &USimulationControlScript::HandleLapCompleted);
+			AILapComponent->RunLap();
+		}
+		else {
+			AILapComponent->RunLap();
+		}
 	}
 }
 
+
+void USimulationControlScript::HandleLapCompleted()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("SIMULATION CONTROL SCRIPT -> LAP COMPLETED"));
+	runLap();
+}
 
 
 // Called every frame

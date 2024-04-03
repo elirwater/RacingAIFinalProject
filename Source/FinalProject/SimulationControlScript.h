@@ -33,4 +33,9 @@ public:
 	// executes 1 lap 
 	void runLap();
 
+	UFUNCTION()
+	void HandleLapCompleted();
+
+
+
 };
