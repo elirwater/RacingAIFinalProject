@@ -36,7 +36,7 @@ void USplineController::BeginPlay()
     }
 
     // Temporary to spawn a path from the center path (could be used as the default spline path)
-    spawnAIPathingSpline(centerPath);
+    //spawnAIPathingSpline(centerPath);
 
 
 	// ...
@@ -138,7 +138,7 @@ void USplineController::generateAIPathPointPossibilities() {
                     TArray<TWeakObjectPtr<ULandscapeSplineSegment>> ReOrdered = { Segments[11], Segments[0], Segments[16], Segments[9], Segments[15], Segments[13], Segments[2], Segments[7],
                     Segments[1], Segments[10], Segments[19], Segments[5], Segments[6], Segments[14], Segments[4], Segments[3], Segments[12], Segments[18], Segments[8], Segments[17]
                     };
-                    TArray<int32> segmentsToBeInverted = { 2, 7, 1, 10, 19, 5, 6, 14, 4, 3, 12};
+                    TArray<int32> segmentsToBeInverted = { 2, 7, 1, 10, 19, 5, 6, 14, 4, 3, 12, 18};
                     // So we can do array inverting for specific segments
                     int32 currSegmentIndex = 0;
 
@@ -284,13 +284,22 @@ void USplineController::spawnAIPathingSpline(TArray<FVector> points) {
         int32 numSplinePoints = SplineComponent->GetNumberOfSplinePoints();
 
         for (int32 i = 0; i < points.Num(); ++i) {
-            SplineComponent->SetSplinePointType(i, ESplinePointType::Linear);
+            SplineComponent->SetSplinePointType(i, ESplinePointType::Curve);
         }
 
 
     }
 
 
+}
+
+
+
+
+
+// Get's the available nav AI points for the various AI models that need them
+TArray<FVector> USplineController::getAvailableAINavPoints() {
+    return availableAINavPoints;
 }
 
 

@@ -238,10 +238,10 @@ void ULapComponent::CompleteLap()
     if (LapState.State == ELapState::LapEnded)
     {
         // Calculate lap time
-        float LapTime = GetWorld()->TimeSeconds - StartTime;
+        lapTime = GetWorld()->TimeSeconds - StartTime;
 
         // Print lap time when lap ends
-        FString LapTimeString = FString::Printf(TEXT("LAP TIME: %.2f seconds"), LapTime);
+        FString LapTimeString = FString::Printf(TEXT("LAP TIME: %.2f seconds"), lapTime);
         GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, LapTimeString);
 
         // Stop the timer

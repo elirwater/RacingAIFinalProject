@@ -125,6 +125,9 @@ public:
 	// The start time for 
 	float StartTime;
 
+	// This lap time
+	float lapTime;
+
 	// A timer for a given lap
 	FTimerHandle LapTimerHandle;
 

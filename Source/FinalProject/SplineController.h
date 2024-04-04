@@ -33,7 +33,9 @@ protected:
 
 	void visualizeAINavPoints();
 
-	void spawnAIPathingSpline(TArray<FVector> points);
+	
+
+	
 
 
 
@@ -49,6 +51,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	int32 visualizeSpecificSegment;
 
+	TArray<FVector> getAvailableAINavPoints();
 
+	void spawnAIPathingSpline(TArray<FVector> points);
 		
 };

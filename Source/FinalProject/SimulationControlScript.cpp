@@ -31,6 +31,20 @@ void USimulationControlScript::BeginPlay()
 
 void USimulationControlScript::runLap() {
 
+
+	TArray<FVector> modelGeneratedPoints;
+
+	// First we run one iteration/epoch of the Reinforcent Learning Model and gather the points it generates
+	if (ReinforcementLearningAI) {
+		modelGeneratedPoints = ReinforcementLearningAI->getModelGeneratedSplinePoints();
+	}
+
+	// Then we generate the spline on the track with those points
+	if (SplineComponent) {
+		SplineComponent->spawnAIPathingSpline(modelGeneratedPoints);
+	}
+
+	// Then we actually run the lap using the Lap Component and generate it's time/score
 	if (AILapComponent)
 	{	
 		// If our delegate is not bound to the HandleLapCompleted function yet
@@ -48,7 +62,9 @@ void USimulationControlScript::runLap() {
 
 void USimulationControlScript::HandleLapCompleted()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("SIMULATION CONTROL SCRIPT -> LAP COMPLETED"));
+	float LapTime = AILapComponent->lapTime;
+	FString LapTimeString = FString::Printf(TEXT("LAP TIME FROM CONTROLLER: %.2f seconds"), LapTime);
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, LapTimeString);
 	runLap();
 }
 

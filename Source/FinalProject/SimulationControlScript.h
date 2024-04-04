@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "LapComponent.h"
+#include "ReinforcementLearningAI.h"
 #include "SimulationControlScript.generated.h"
 
 
@@ -30,11 +31,24 @@ public:
 	ULapComponent* AILapComponent;
 
 
+	// Reference to the Reinforceemtn Learning AI Component that is set in the blueprint for this class
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actors")
+	UReinforcementLearningAI* ReinforcementLearningAI;
+
+
+
 	// executes 1 lap 
 	void runLap();
 
 	UFUNCTION()
 	void HandleLapCompleted();
+	
+	// Calls the Spline Controller to actually generate the points the AI model selects for this iteration
+	void generateSplinePoints(TArray<FVector> points);
+
+	// Reference to the Spline that is set in the blueprint for this class
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actors")
+	USplineController* SplineComponent;
 
 
 
