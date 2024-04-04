@@ -32,24 +32,14 @@ void UReinforcementLearningAI::TickComponent(float DeltaTime, ELevelTick TickTyp
 	// ...
 }
 
-// Retrieves the available AI Nav points on the racetrack from the SplineController
-void UReinforcementLearningAI::retrieveAvailableAINAvPoints() {
-
-	if (SplineComponent) {
-		availableAINavPoints = SplineComponent->getAvailableAINavPoints();
-	}
-}
 
 
 // Reference to the Splin that is set in the blueprint for this class
-TArray<FVector> UReinforcementLearningAI::getModelGeneratedSplinePoints() {
+TArray<FVector> UReinforcementLearningAI::getModelGeneratedSplinePoints(TArray<FVector> segmentPoints) {
 	// TEMPORARY IMPLEMENTATION TO TEST 
 	// NORMALLY, THIS WOULD RETRIEVE THIS ITERATIONS OF THE MODELS GENERATED POINTS
 	//////////////////////////////////////////////////////////////////////////////
 
-
-	// Randomly generate a list of points by picking randomly 1 point in every row 
-	retrieveAvailableAINAvPoints();
 
 	// Populate the array with your points...
 
@@ -57,16 +47,16 @@ TArray<FVector> UReinforcementLearningAI::getModelGeneratedSplinePoints() {
 	TArray<FVector> ModelGeneratedPath;
 
 	// Iterate through the array of FVector points
-	for (int32 i = 0; i < availableAINavPoints.Num(); i += 5)
+	for (int32 i = 0; i < segmentPoints.Num(); i += 5)
 	{
 		// Check if there are at least 5 points remaining
-		if (i + 5 <= availableAINavPoints.Num())
+		if (i + 5 <= segmentPoints.Num())
 		{
 			// Select a random index from the current group of 5 points
 			int32 RandomIndex = FMath::RandRange(i, i + 4);
 
 			// Add the selected point to the ModelGeneratedPath
-			ModelGeneratedPath.Add(availableAINavPoints[RandomIndex]);
+			ModelGeneratedPath.Add(segmentPoints[RandomIndex]);
 		}
 	}
 
@@ -74,3 +64,162 @@ TArray<FVector> UReinforcementLearningAI::getModelGeneratedSplinePoints() {
 
 }
 
+float UReinforcementLearningAI::FindQValueWithMatchingStateAndAction(const FModelState& TargetState, const FPointModificationAction& TargetAction)
+{
+	// Iterate through the QTable array
+	for (FQTableEntry& Entry : qTable)
+	{
+		// Find the correct state in the table
+		if (Entry.State == TargetState)
+		{
+			// Loop through actions and find correct one
+			for (FPointModificationAction action : Entry.ActionsFromState) {
+
+				if (action == TargetAction) {
+					return action.score;
+				}
+			}
+		}
+	}
+
+	// Because we can't properly instantiate the entire Q table given the number of possibilites of states for just 10 segments rows is 5^10, if we don't have it in the table, we give it a score of 10000 (very bad)
+	// TODO: this might be a problem...
+	return 10000;
+}
+
+float UReinforcementLearningAI::GetMinQValForState(FModelState state) {
+
+	float minVal = 10000;
+	// Iterate through the QTable array
+	for (FQTableEntry& Entry : qTable)
+	{
+		// Find the correct state in the table
+		if (Entry.State == state)
+		{
+			// Loop through actions and modify the minVal if a smaller one is found
+			for (FPointModificationAction action : Entry.ActionsFromState) {
+				if (action.score < minVal) {
+					minVal = action.score;
+				}
+			}
+		}
+	}
+	return minVal;
+}
+
+
+FPointModificationAction UReinforcementLearningAI::GetMinQValAction(FModelState state) {
+	float minVal = 10000;
+	FPointModificationAction outAction;
+
+	// Iterate through the QTable array
+	for (FQTableEntry& Entry : qTable)
+	{
+		// Find the correct state in the table
+		if (Entry.State == state)
+		{
+			// Loop through actions and modify the minVal if a smaller one is found
+			for (FPointModificationAction action : Entry.ActionsFromState) {
+				if (action.score < minVal) {
+					minVal = action.score;
+					outAction = action;
+				}
+			}
+		}
+	}
+	return outAction;
+}
+
+
+void UReinforcementLearningAI::UpdateQTable(FModelState currentStateInput, FPointModificationAction selectedAction, int32 score, FModelState nextState, double alpha, double gamma) {
+
+	// WEEEEEE NEED TO INTIALIZE Q TABLE FIRST !!!!!!! //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	  // Get the Q-value of the current state-action pair
+
+
+	float oldValue = FindQValueWithMatchingStateAndAction(currentStateInput, selectedAction);
+
+	float minValue = GetMinQValForState(nextState);
+
+	float newVal = oldValue + alpha * (score + gamma * minValue - oldValue);
+
+	// Iterate through the QTable array
+	for (FQTableEntry& Entry : qTable)
+	{
+		// Find the correct state in the table
+		if (Entry.State == currentStateInput)
+		{
+			// Loop through actions and modify the minVal if a smaller one is found
+			for (FPointModificationAction action : Entry.ActionsFromState) {
+
+				if (action == selectedAction) {
+
+					action.score = newVal;
+					// Yah, we updated our value
+					return;
+				}
+			}
+			// If we got here, that means we do have an entry for this state, but not for this select action, so we add the new action
+			FPointModificationAction newAction = selectedAction;
+			newAction.score = score;
+			Entry.ActionsFromState.Add(newAction);
+
+		}
+	}
+	// Looks like we don't have an entry yet for this currentStateInput and select action -> let's make one
+	FPointModificationAction newAction = selectedAction;
+	newAction.score = score;
+	TArray<FPointModificationAction> actions;
+	actions.Add(newAction);
+
+	FQTableEntry entry = FQTableEntry(currentStateInput, actions);
+}
+
+
+FPointModificationAction UReinforcementLearningAI::GenerateRandomAction(TArray<int32> availablePointIndiciesForSegment) {
+	// Calculate the number of subsections (a subsection is a group of 5 points within a given segment)
+	int32 NumSubsections = availablePointIndiciesForSegment.Num() / 5;
+
+	// Randomly select one subsection
+	int32 RandomSubsectionIndex = FMath::RandRange(0, NumSubsections - 1);
+
+	// Calculate the start index of the chosen subsection
+	int32 StartIndex = RandomSubsectionIndex * 5;
+
+	// Randomly select one point within the chosen subsection
+	int32 RandomPointIndexToReplace = FMath::RandRange(StartIndex, StartIndex + 4);
+
+	// Randomly point index to replace with new one
+	int32 RandomPointIndexNew = FMath::RandRange(StartIndex, StartIndex + 4);
+
+	FPointModificationAction action = FPointModificationAction(RandomPointIndexToReplace, RandomPointIndexNew);
+	
+	return action;
+
+}
+
+
+
+
+FPointModificationAction UReinforcementLearningAI::EpsilonGreedyPolicyGenerateAction(FModelState currentStateInput, double epsilon, TArray<int32> availablePointIndiciesForSegment) {
+
+	// Generate a random number between 0 and 1
+	float randomValue = FMath::FRand();
+
+	// Check if the random value is less than epsilon (explore)
+	if (randomValue < epsilon) {
+		FPointModificationAction action = GenerateRandomAction(availablePointIndiciesForSegment);
+		return action;
+	}
+	else { 
+		FPointModificationAction action = GetMinQValAction(currentStateInput);
+
+		// We don't seem to have anything in our table of value, let's generate a random point instead!
+		if (!action.IsInitialized()) {
+			action = GenerateRandomAction(availablePointIndiciesForSegment);
+			return action;
+		}
+		return action;
+	}
+
+}

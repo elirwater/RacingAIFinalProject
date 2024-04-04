@@ -29,6 +29,9 @@ protected:
 	TArray<FVector> centerPath;
 
 
+	TArray<TArray<FVector>> availableAINavPointsBySegment;
+
+
 	void generateAIPathPointPossibilities();
 
 	void visualizeAINavPoints();
@@ -52,6 +55,8 @@ public:
 	int32 visualizeSpecificSegment;
 
 	TArray<FVector> getAvailableAINavPoints();
+
+	TArray<TArray<FVector>> getAvailableAINavPointsBySegment();
 
 	void spawnAIPathingSpline(TArray<FVector> points);
 		

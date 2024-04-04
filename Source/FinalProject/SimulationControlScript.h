@@ -36,7 +36,6 @@ public:
 	UReinforcementLearningAI* ReinforcementLearningAI;
 
 
-
 	// executes 1 lap 
 	void runLap();
 
@@ -49,6 +48,17 @@ public:
 	// Reference to the Spline that is set in the blueprint for this class
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actors")
 	USplineController* SplineComponent;
+
+	FModelState currentState;
+	FModelState nextState;
+	FPointModificationAction selectedAction;
+
+
+	TArray<int32> availablePointIndiciesForSegment;
+
+
+
+
 
 
 

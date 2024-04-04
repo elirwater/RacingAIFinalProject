@@ -135,4 +135,18 @@ public:
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLapCompletedDelegate);
 	UPROPERTY(BlueprintAssignable)
 	FOnLapCompletedDelegate OnLapCompletedDelegate;
+
+
+	// Completes the lap with a fail, passing back to the controller a super high time value 
+	// This is either called by the OutOfBoundsChecker if the car goes out of the available segments
+	// OR if the lap time is greater than 1 min
+	void FailLap();
+
+
+	// Called every tick to check if the AI has wandered out of bounds, if so, the lap is failed
+	void OutOfBoundsChecker();
+
+	// Called every tick to check if the AI has gone over it's alloted time, if so, the lap is failed
+	void OverTimeChecker();
+
 };

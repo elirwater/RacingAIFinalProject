@@ -59,6 +59,10 @@ void ULapComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
   
     UpdateAILapState();
 
+    OutOfBoundsChecker();
+
+    OverTimeChecker();
+
 }
 
 
@@ -220,7 +224,6 @@ void ULapComponent::UpdateAILapState()
     if (!bWasAIOnStartLine && bIsAIOnStartLineNow && (LapState.State == ELapState::LapInProgress)) {
         // Transition from false to true occurred - this means the AI has left the start line
         GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("LAP ENDED"));
-        LapState.State = ELapState::LapEnded;
 
         // Handle the completed lap stuff
         CompleteLap();
@@ -235,22 +238,81 @@ void ULapComponent::UpdateAILapState()
 // Completes the lap, and sets the lap time, and broadcasts to the delegate (telling the controller the lap has been completed and which calls the HandleLapCompleted function)
 void ULapComponent::CompleteLap()
 {
-    if (LapState.State == ELapState::LapEnded)
-    {
-        // Calculate lap time
-        lapTime = GetWorld()->TimeSeconds - StartTime;
 
-        // Print lap time when lap ends
-        FString LapTimeString = FString::Printf(TEXT("LAP TIME: %.2f seconds"), lapTime);
+    LapState.State = ELapState::LapEnded;
+
+    // Calculate lap time
+    lapTime = GetWorld()->GetRealTimeSeconds() - StartTime;
+
+    // Print lap time when lap ends
+    FString LapTimeString = FString::Printf(TEXT("LAP TIME: %.2f seconds"), lapTime);
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, LapTimeString);
+
+    // Stop the timer
+    GetWorld()->GetTimerManager().ClearTimer(LapTimerHandle);
+
+    //Triggers the execution of all functions bound to the delegate (which is the HandleLapCompleted function in the SimulationController)
+    OnLapCompletedDelegate.Broadcast();
+    
+}
+
+
+// Completes the lap with a fail, passing back to the controller a super high time value 
+// This is either called by the OutOfBoundsChecker if the car goes out of the available segments
+// OR if the lap time is greater than 1 min
+void  ULapComponent::FailLap() {
+
+    LapState.State = ELapState::LapEnded;
+
+    // Set the lap time to be really high
+    lapTime = 10000000.f;
+
+    // Print lap time when lap ends
+    FString LapTimeString = FString::Printf(TEXT("LAP TIME: %.2f seconds"), lapTime);
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, LapTimeString);
+
+    // Stop the timer
+    GetWorld()->GetTimerManager().ClearTimer(LapTimerHandle);
+
+    //Triggers the execution of all functions bound to the delegate (which is the HandleLapCompleted function in the SimulationController)
+    OnLapCompletedDelegate.Broadcast();
+
+
+}
+
+
+// Called every tick to check if the AI has wandered out of bounds, if so, the lap is failed
+void ULapComponent::OutOfBoundsChecker() {
+    
+    if (LapState.State == ELapState::LapInProgress) {
+        for (FBox boundingBox : AIBoundingBoxes) {
+            if (IsPointInsideBox(AICarLocation, boundingBox)) {
+                // If the AI Vehicle is inside a box, we return and nothing happens
+                return;
+            }
+        }
+        FString LapTimeString = FString::Printf(TEXT("OUT OF BOUNDS CHECKER FAIL"));
         GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, LapTimeString);
-
-        // Stop the timer
-        GetWorld()->GetTimerManager().ClearTimer(LapTimerHandle);
-
-        //Triggers the execution of all functions bound to the delegate (which is the HandleLapCompleted function in the SimulationController)
-        OnLapCompletedDelegate.Broadcast();
+        // If we made it here, the AI was outside of the bounding boxes so the lap is failed
+        FailLap();
     }
 }
+
+// Called every tick to check if the AI has gone over it's alloted time, if so, the lap is failed
+void ULapComponent::OverTimeChecker() {
+
+    lapTime = GetWorld()->GetRealTimeSeconds() - StartTime;
+
+
+    if (lapTime > 20.f) {
+        FString LapTimeString = FString::Printf(TEXT("OVERTIME FAIL"));
+        GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, LapTimeString);
+        FailLap();
+    }
+
+}
+
+
 
 
 // Runs the execution of 1 AI Lap
@@ -262,10 +324,41 @@ void ULapComponent::RunLap() {
         LapState.State = ELapState::LapNotStarted;
 
         // Then we spawn teleport the AI car to the correct location on the start line
-        AICarPawn->SetActorLocation(startLine->Bounds.GetBox().GetCenter(), false, nullptr, ETeleportType::TeleportPhysics);
+
+        //AICarPawn->setWorldLocationAndRota(startLine->Bounds.GetBox().GetCenter(), false, nullptr, ETeleportType::TeleportPhysics);
+
+
+        // Stop physics simulation for the AI car pawn (otherwise it will have a ton of velocity and weird momentum after it teleports)
+        if (AICarPawn->GetRootComponent())
+        {
+            UPrimitiveComponent* RootPrimitiveComponent = Cast<UPrimitiveComponent>(AICarPawn->GetRootComponent());
+            if (RootPrimitiveComponent)
+            {
+                RootPrimitiveComponent->SetSimulatePhysics(false);
+            }
+        }
+
+        // Teleport the AI car pawn to the center of the start line's bounding box without simulating physics
+        AICarPawn->SetActorLocation(startLine->Bounds.GetBox().GetCenter(), false);
+
+        // Reset physics properties after teleportation
+        if (AICarPawn->GetRootComponent())
+        {
+            UPrimitiveComponent* RootPrimitiveComponent = Cast<UPrimitiveComponent>(AICarPawn->GetRootComponent());
+            if (RootPrimitiveComponent)
+            {
+                // Reset physics properties as needed
+                RootPrimitiveComponent->SetPhysicsLinearVelocity(FVector::ZeroVector);
+                RootPrimitiveComponent->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+
+                // Restart physics simulation
+                RootPrimitiveComponent->SetSimulatePhysics(true);
+            }
+        }
+
 
         // THen we set the start time
-        StartTime = GetWorld()->TimeSeconds;
+        StartTime = GetWorld()->GetRealTimeSeconds();
 
         // Because the car will automatically follow the spline, the other functions are responsible for timing and completing the lap
 

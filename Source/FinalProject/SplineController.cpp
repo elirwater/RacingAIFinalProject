@@ -104,6 +104,9 @@ void ReverseArray(TArray<FLandscapeSplineInterpPoint>& Array) {
 
 
 
+
+
+
 // Generates a list of available points that the AI can choose from when creating the splines of it's path
 // ALSO generates the perfect center path (which can be used as the default path)
 void USplineController::generateAIPathPointPossibilities() {
@@ -134,11 +137,11 @@ void USplineController::generateAIPathPointPossibilities() {
                     }
 
                     // The segments in the map are originally out of order, so they are re-ordered here to make the spline connections and paths smooth
-                    TArray<int32> segmentOrders = { 11, 0, 16, 9, 15, 13, 2, 7, 1, 10, 19, 5, 6, 14, 4, 3, 12, 18, 8, 17};
-                    TArray<TWeakObjectPtr<ULandscapeSplineSegment>> ReOrdered = { Segments[11], Segments[0], Segments[16], Segments[9], Segments[15], Segments[13], Segments[2], Segments[7],
-                    Segments[1], Segments[10], Segments[19], Segments[5], Segments[6], Segments[14], Segments[4], Segments[3], Segments[12], Segments[18], Segments[8], Segments[17]
+                    TArray<int32> segmentOrders = {0, 16, 15, 13, 7, 1, 10, 19, 5, 14, 4, 3, 12, 8, 17};
+                    TArray<TWeakObjectPtr<ULandscapeSplineSegment>> ReOrdered = {Segments[0], Segments[16], Segments[15], Segments[13], Segments[7],
+                    Segments[1], Segments[10], Segments[19], Segments[5], Segments[14], Segments[4], Segments[3], Segments[12], Segments[8], Segments[17]
                     };
-                    TArray<int32> segmentsToBeInverted = { 2, 7, 1, 10, 19, 5, 6, 14, 4, 3, 12, 18};
+                    TArray<int32> segmentsToBeInverted = { 7, 1, 10, 19, 5, 14, 4, 3, 12};
                     // So we can do array inverting for specific segments
                     int32 currSegmentIndex = 0;
 
@@ -161,6 +164,8 @@ void USplineController::generateAIPathPointPossibilities() {
                         }
 
 
+                        TArray<FVector> allPointsInThisSegment;
+
                         // For each point info in this segment
                         for (FLandscapeSplineInterpPoint pointInfo : segmentPointInfo) {
 
@@ -169,6 +174,7 @@ void USplineController::generateAIPathPointPossibilities() {
 
                             // Append this array to our total available points array
                             availableAINavPoints.Append(pointsForThisPointInfo);
+                            allPointsInThisSegment.Append(pointsForThisPointInfo);
 
                             // Also add to the center path
                             FVector centerPointWorld = SplinesComponent->GetComponentTransform().TransformPosition(pointInfo.Center);
@@ -179,6 +185,8 @@ void USplineController::generateAIPathPointPossibilities() {
                                 centerPath.Add(centerPointWorld);
                             }
                         }
+
+                        availableAINavPointsBySegment.Add(allPointsInThisSegment);
 
                         currSegmentIndex = currSegmentIndex + 1;
                     }
@@ -300,6 +308,11 @@ void USplineController::spawnAIPathingSpline(TArray<FVector> points) {
 // Get's the available nav AI points for the various AI models that need them
 TArray<FVector> USplineController::getAvailableAINavPoints() {
     return availableAINavPoints;
+}
+
+// Get's the available nav AI points for the various AI models that need them
+TArray<TArray<FVector>> USplineController::getAvailableAINavPointsBySegment() {
+    return availableAINavPointsBySegment;
 }
 
 
