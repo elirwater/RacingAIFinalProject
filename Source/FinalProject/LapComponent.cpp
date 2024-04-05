@@ -6,7 +6,7 @@
 #include "EngineUtils.h"
 #include "DrawDebugHelpers.h"
 #include "LandscapeSplineSegment.h"
-
+#include <float.h>
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Components/StaticMeshComponent.h"
@@ -242,7 +242,7 @@ void ULapComponent::CompleteLap()
     LapState.State = ELapState::LapEnded;
 
     // Calculate lap time
-    lapTime = GetWorld()->GetRealTimeSeconds() - StartTime;
+    lapTime = GetWorld()->TimeSeconds - StartTime;
 
     // Print lap time when lap ends
     FString LapTimeString = FString::Printf(TEXT("LAP TIME: %.2f seconds"), lapTime);
@@ -265,7 +265,7 @@ void  ULapComponent::FailLap() {
     LapState.State = ELapState::LapEnded;
 
     // Set the lap time to be really high
-    lapTime = 10000000.f;
+    lapTime = FLT_MAX;
 
     // Print lap time when lap ends
     FString LapTimeString = FString::Printf(TEXT("LAP TIME: %.2f seconds"), lapTime);
@@ -301,10 +301,10 @@ void ULapComponent::OutOfBoundsChecker() {
 // Called every tick to check if the AI has gone over it's alloted time, if so, the lap is failed
 void ULapComponent::OverTimeChecker() {
 
-    lapTime = GetWorld()->GetRealTimeSeconds() - StartTime;
+    lapTime = GetWorld()->TimeSeconds - StartTime;
 
 
-    if (lapTime > 20.f) {
+    if (lapTime > 60.f) {
         FString LapTimeString = FString::Printf(TEXT("OVERTIME FAIL"));
         GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, LapTimeString);
         FailLap();

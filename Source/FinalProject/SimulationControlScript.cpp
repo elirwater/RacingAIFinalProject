@@ -24,7 +24,7 @@ void USimulationControlScript::BeginPlay()
 
 	Super::BeginPlay();
 
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 20.0f); // Set simulation speed to 20x
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.f); // Set simulation speed to 20x
 
 
 	FTimerHandle TimerHandle;

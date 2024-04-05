@@ -1,6 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
+#include <float.h>
 #include "ReinforcementLearningAI.h"
 
 // Sets default values for this component's properties
@@ -82,14 +82,14 @@ float UReinforcementLearningAI::FindQValueWithMatchingStateAndAction(const FMode
 		}
 	}
 
-	// Because we can't properly instantiate the entire Q table given the number of possibilites of states for just 10 segments rows is 5^10, if we don't have it in the table, we give it a score of 10000 (very bad)
+	// Because we can't properly instantiate the entire Q table given the number of possibilites of states for just 10 segments rows is 5^10, if we don't have it in the table, we give it an infinite score
 	// TODO: this might be a problem...
-	return 10000;
+	return FLT_MAX;;
 }
 
 float UReinforcementLearningAI::GetMinQValForState(FModelState state) {
 
-	float minVal = 10000;
+	float minVal = FLT_MAX;
 	// Iterate through the QTable array
 	for (FQTableEntry& Entry : qTable)
 	{
@@ -109,7 +109,8 @@ float UReinforcementLearningAI::GetMinQValForState(FModelState state) {
 
 
 FPointModificationAction UReinforcementLearningAI::GetMinQValAction(FModelState state) {
-	float minVal = 10000;
+
+	float minVal = FLT_MAX;
 	FPointModificationAction outAction;
 
 	// Iterate through the QTable array
@@ -127,6 +128,10 @@ FPointModificationAction UReinforcementLearningAI::GetMinQValAction(FModelState 
 			}
 		}
 	}
+
+	FString LapTimeString = FString::Printf(TEXT("Finding minimum action from state..."));
+	GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Orange, LapTimeString);
+
 	return outAction;
 }
 
@@ -177,6 +182,10 @@ void UReinforcementLearningAI::UpdateQTable(FModelState currentStateInput, FPoin
 
 
 FPointModificationAction UReinforcementLearningAI::GenerateRandomAction(TArray<int32> availablePointIndiciesForSegment) {
+
+	FString LapTimeString = FString::Printf(TEXT("Generating random action..."));
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, LapTimeString);
+
 	// Calculate the number of subsections (a subsection is a group of 5 points within a given segment)
 	int32 NumSubsections = availablePointIndiciesForSegment.Num() / 5;
 
@@ -216,6 +225,10 @@ FPointModificationAction UReinforcementLearningAI::EpsilonGreedyPolicyGenerateAc
 
 		// We don't seem to have anything in our table of value, let's generate a random point instead!
 		if (!action.IsInitialized()) {
+
+			FString LapTimeString = FString::Printf(TEXT("Failed to find minimum action, initializing random action from state..."));
+			GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Orange, LapTimeString);
+
 			action = GenerateRandomAction(availablePointIndiciesForSegment);
 			return action;
 		}
