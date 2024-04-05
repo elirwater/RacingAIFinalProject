@@ -304,7 +304,7 @@ void ULapComponent::OverTimeChecker() {
     lapTime = GetWorld()->TimeSeconds - StartTime;
 
 
-    if (lapTime > 60.f) {
+    if (lapTime > 50.f) {
         FString LapTimeString = FString::Printf(TEXT("OVERTIME FAIL"));
         GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, LapTimeString);
         FailLap();

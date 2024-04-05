@@ -49,9 +49,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actors")
 	USplineController* SplineComponent;
 
-	FModelState currentState;
-	FModelState nextState;
-	FPointModificationAction selectedAction;
+	FState currentState;
+	FState nextState;
+	FAction selectedAction;
 
 
 	TArray<int32> availablePointIndiciesForSegment;

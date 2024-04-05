@@ -5,118 +5,105 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "SplineController.h"
+#include <float.h>
 #include "ReinforcementLearningAI.generated.h"
 
 
 
-	// Custom struct to represent an action (which is modifying 1 point in the segment
+
+// Custom struct to represent which racing line was choosen for a given segment
 USTRUCT(BlueprintType)
-struct FPointModificationAction
-{
+struct FRacingLineForSegment {
 	GENERATED_BODY()
-	// Index of the previous point
+
+
+	// Which segment is this racing line applied to 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 PreviousPointIndex;
+	int32 SegmentIndex;
 
-	// Index of the new point
+	// Which racing is choosen for this segment
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 NewPointIndex;
+	int32 RacingLineIndex;
 
-	// Score for this action 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 score;
-
-	bool bInitialized;
-
-	// Default constructor
-	FPointModificationAction() : PreviousPointIndex(0), NewPointIndex(0), bInitialized(false) {}
-
-	// Constructor with parameters
-	FPointModificationAction(int32 PreviousIndex, int32 NewIndex)
-		: PreviousPointIndex(PreviousIndex), NewPointIndex(NewIndex), score(10000), bInitialized(true) {}
-
-	// Equality operator
-	bool operator==(const FPointModificationAction& Other) const
+	bool operator==(const FRacingLineForSegment& Other) const
 	{
-		return (PreviousPointIndex == Other.PreviousPointIndex) && (NewPointIndex == Other.NewPointIndex);
+		return (RacingLineIndex == Other.RacingLineIndex) && (SegmentIndex == Other.SegmentIndex);
 	}
+};
 
-	// Function to check if the state has been initialized
-	bool IsInitialized() const
+// Custom struct to represent an action that can be taken by the RL algorithm
+USTRUCT(BlueprintType)
+struct FAction {
+	GENERATED_BODY()
+
+	// Which segment is this racing line applied to 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 SegmentToModify;
+
+	// Which new racing is choosen for this segment
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 NewRacingLineIndex;
+
+	// The score this action generated
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float Score;
+
+	// Has this action been initialized yet?
+	bool bIsInitialized;
+
+	FAction() : bIsInitialized(false) {}
+
+	FAction(int32 InputSegmentToModify, int32 InputNewRacingLineIndex) : SegmentToModify(InputSegmentToModify), NewRacingLineIndex(InputNewRacingLineIndex), bIsInitialized(true), Score(-1.f) {}
+
+	bool operator==(const FAction& Other) const
 	{
-		return bInitialized;
+		return (SegmentToModify == Other.SegmentToModify) && (NewRacingLineIndex == Other.NewRacingLineIndex);
 	}
 };
 
 
+// Custom struct to represent a State for the RL algorithm
 USTRUCT(BlueprintType)
-// Custom struct to represent a state, 1 state includes the indexes of the x number of points used for this segment of the spline
-struct FModelState
-{
+struct FState {
 	GENERATED_BODY()
 
-	// List of point indexes for this segment
+	// A given state is a description of each segment and their racing lines
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<int32> PointIndexes;
+	TArray<FRacingLineForSegment> SegmentRacingLines;
 
-	bool bInitialized;
+	// Has this state been initialized yet?
+	bool bIsInitialized;
 
-	// Default constructor
-	FModelState()
-		: bInitialized(false)
+	FState() : bIsInitialized(false) {}
+
+	FState(TArray<FRacingLineForSegment> InputSegmentRacingLines) : SegmentRacingLines(InputSegmentRacingLines), bIsInitialized(true) {}
+
+	bool operator==(const FState& Other) const
 	{
-	}
-
-	// Constructor with initialization
-	FModelState(const TArray<int32>& InPointIndexes)
-		: PointIndexes(InPointIndexes), bInitialized(true)
-	{
-	}
-
-	// Function to set the point indexes
-	void SetPointIndexes(const TArray<int32>& InPointIndexes)
-	{
-		PointIndexes = InPointIndexes;
-		bInitialized = true;
-	}
-
-	// Equality operator
-	bool operator==(const FModelState& Other) const
-	{
-		return PointIndexes == Other.PointIndexes;
-	}
-
-	// Inequality operator
-	bool operator!=(const FModelState& Other) const
-	{
-		return !(*this == Other);
-	}
-
-	// Function to check if the state has been initialized
-	bool IsInitialized() const
-	{
-		return bInitialized;
+		for (int i = 0; i < SegmentRacingLines.Num(); i += 1) {
+			if (SegmentRacingLines[i] != Other.SegmentRacingLines[i]) {
+				return false;
+			}
+		}
+		return true;
 	}
 };
 
+
+// Custom struct to represent a Q Table entry
 USTRUCT(BlueprintType)
-// Custom struct to represent a Q-table entry, each entry includes the state and the associated score of the state
-struct FQTableEntry
-{
+struct FQTableEntry {
 	GENERATED_BODY()
-	// State represented by the Q-table entry
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FModelState State;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<FPointModificationAction> ActionsFromState;
+	// A state 
+	FState State;
 
-	// Default constructor
+	TArray<FAction> ActionsFromState;
+
 	FQTableEntry() {}
 
-	// Constructor with parameters
-	FQTableEntry(const FModelState& InState, TArray<FPointModificationAction> InActionsFromState)
-		: State(InState), ActionsFromState(InActionsFromState) {}
+	FQTableEntry(FState InputState, TArray<FAction> InputActionFromState) : State(InputState), ActionsFromState(InputActionFromState) {}
+
 };
 
 
@@ -134,8 +121,6 @@ protected:
 	virtual void BeginPlay() override;
 
 
-
-	float FindQValueWithMatchingStateAndAction(const FModelState& TargetState, const FPointModificationAction& TargetAction);
 
 public:	
 	// Called every frame
@@ -155,21 +140,20 @@ public:
 
 
 	TArray<FQTableEntry> qTable;
-	
-	void UpdateQTable(FModelState currentState, FPointModificationAction selectedAction, int32 score, FModelState nextState, double alpha, double gamma);
-
-	FPointModificationAction EpsilonGreedyPolicyGenerateAction(FModelState currentState, double epsilon, TArray<int32> availablePointIndiciesForSegment);
-	
-	FModelState currentState;
-
-	float GetMinQValForState(FModelState state);
 
 
-	TArray<FPointModificationAction> possibleActionsForThisSegment;
+	// New stuff
+	TArray<FAction> GeneratePossibleActionFromState(FState currentState);
 
-	FPointModificationAction GenerateRandomAction(TArray<int32> availablePointIndiciesForSegment);
+	FAction GenerateRandomAction(FState currentState);
 
-	FPointModificationAction GetMinQValAction(FModelState state);
+
+	FAction EpsilonGreedyPolicyGenerateAction(FState currentState, double epsilon);
+
+	void UpdateQTable(FState currentState, FAction& selectedAction, float score, FState nextState, double alpha, double gamma);
+
+	float FindQValueWithMatchingStateAndAction(FState currentStateInput, FAction& selectedAction);
+
 
 
 

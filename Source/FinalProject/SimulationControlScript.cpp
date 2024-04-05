@@ -24,7 +24,7 @@ void USimulationControlScript::BeginPlay()
 
 	Super::BeginPlay();
 
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.f); // Set simulation speed to 20x
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1); // Set simulation speed to 20x
 
 
 	FTimerHandle TimerHandle;
@@ -34,25 +34,22 @@ void USimulationControlScript::BeginPlay()
 }
 
 
-TArray<int32> findCenterPointIndexesForThisSegment(TArray<TArray<FVector>> availableAINavPointsBySegment, int32 segmentIdx) {
-	TArray<int32> centerPointIndexesForThisSegment;
+TArray<int32> findRacingLineForThisSegment(TArray<TArray<FVector>> availableAINavPointsBySegment, int32 segmentIdx, int32 racingLineIdx) {
+	TArray<int32> pointIndexesForThisSegmentRacingLine;
 
 	int32 j = 0;
-	int32 segmentStartingIdx = 0;
 	for (TArray<FVector> segment : availableAINavPointsBySegment) {
 		if (segmentIdx == j) {
 			for (int32 i = 0; i < segment.Num(); i += 5)
 			{
 				if (i + 5 <= segment.Num()) {
-					centerPointIndexesForThisSegment.Add(i + segmentStartingIdx);
+					pointIndexesForThisSegmentRacingLine.Add(i + racingLineIdx);
 				}
 			}
 		}
-
-		segmentStartingIdx = segmentStartingIdx + segment.Num();
 		j = j + 1;
 	}
-	return centerPointIndexesForThisSegment;
+	return pointIndexesForThisSegmentRacingLine;
 }
 
 
@@ -61,7 +58,8 @@ void USimulationControlScript::runLap() {
 
 
 	TArray<FVector> modelGeneratedPoints;
-	int currSegmentIdx = 0;
+	TArray<int32> currSegmentIndicies = TArray<int32>{0};
+
 	TArray<TArray<FVector>> availableAINavPointsBySegment;
 
 	// We begin each episode / epoch in the controller by grabbing the available points by segment
@@ -74,52 +72,51 @@ void USimulationControlScript::runLap() {
 	if (ReinforcementLearningAI) {
 
 		// If we haven't initalized the current state, we are on the first epoch for this segment
-		if (!currentState.IsInitialized()) {
+		if (!currentState.bIsInitialized) {
 
-			// We initialize the current state as the center points for each point row in this segment
-			TArray<int32> centerPointsForThisSegment;
-			for (int32 i = 0; i < availableAINavPointsBySegment[currSegmentIdx].Num(); i += 5)
-			{
-				if (i + 5 <= availableAINavPointsBySegment[currSegmentIdx].Num()) {
-					centerPointsForThisSegment.Add(i);
-				}
+			FState newState = FState(TArray<FRacingLineForSegment>{});
+			for (int32 i = 0; i < currSegmentIndicies.Num(); i += 1) {
+				newState.SegmentRacingLines.Add(FRacingLineForSegment(i, 0));
 			}
-			// Initialize the starting state
-			currentState.SetPointIndexes(centerPointsForThisSegment);
-
-			// We now create a list of indices that correspond to our available points for this segment
-			for (int32 Index = 0; Index < availableAINavPointsBySegment[currSegmentIdx].Num(); ++Index) {
-				availablePointIndiciesForSegment.Add(Index);
-			}
+			currentState = newState;
 		}
 
 
 		// Select an action using epsilon-greedy policy
-		selectedAction = ReinforcementLearningAI->EpsilonGreedyPolicyGenerateAction(currentState, 0.1, availablePointIndiciesForSegment);
+		selectedAction = ReinforcementLearningAI->EpsilonGreedyPolicyGenerateAction(currentState, 0.1);
 
 
 		// Now we perform the action by first modifying the state and then generating the spline and running it
 		nextState = currentState;
 
-		// We find the index in our current state we want to replace
-		int32 indexToReplaceInCurrentState = selectedAction.PreviousPointIndex / 5;
 
-		nextState.PointIndexes[indexToReplaceInCurrentState] = selectedAction.NewPointIndex;
+		// We update our next state
+		for (FRacingLineForSegment& line : nextState.SegmentRacingLines) {
+
+			if (selectedAction.SegmentToModify == line.SegmentIndex) {
+				line.RacingLineIndex = selectedAction.NewRacingLineIndex;
+			}
+		}
 
 
-		for (int32 i = 0; i < nextState.PointIndexes.Num(); i+=1)
-		{
-			modelGeneratedPoints.Add(availableAINavPointsBySegment[currSegmentIdx][nextState.PointIndexes[i]]);
+		// Now we figure out what the racing line indexes correspond to as actual track points in space
+		for (FRacingLineForSegment line : nextState.SegmentRacingLines) {
+			TArray<int32> modelGeneratedPointsIndexesForThisSegment = findRacingLineForThisSegment(availableAINavPointsBySegment, line.SegmentIndex, line.RacingLineIndex);
+			for (int32 pointIndex : modelGeneratedPointsIndexesForThisSegment) {
+				modelGeneratedPoints.Add(availableAINavPointsBySegment[line.SegmentIndex][pointIndex]);
+			}
 		}
 	}
 
 	// Then we fill in the rest of the points with the centerline points for the other segments, but keep the model generated points for this segment
 	// and generate the corresponding spline
 	TArray<FVector> allPoints;
+	allPoints.Append(modelGeneratedPoints);
 	int32 j = 0;
 	for (TArray<FVector> segment : availableAINavPointsBySegment) {
-		if (currSegmentIdx == j) {
-			allPoints.Append(modelGeneratedPoints);
+		if (currSegmentIndicies.Contains(j)) {
+			j = j + 1;
+			continue;
 		}
 		else {
 			// Iterate through the array of FVector points 5 at a time, and take the center point

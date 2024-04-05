@@ -64,175 +64,224 @@ TArray<FVector> UReinforcementLearningAI::getModelGeneratedSplinePoints(TArray<F
 
 }
 
-float UReinforcementLearningAI::FindQValueWithMatchingStateAndAction(const FModelState& TargetState, const FPointModificationAction& TargetAction)
-{
-	// Iterate through the QTable array
-	for (FQTableEntry& Entry : qTable)
-	{
-		// Find the correct state in the table
-		if (Entry.State == TargetState)
-		{
-			// Loop through actions and find correct one
-			for (FPointModificationAction action : Entry.ActionsFromState) {
 
-				if (action == TargetAction) {
-					return action.score;
+
+float UReinforcementLearningAI::FindQValueWithMatchingStateAndAction(FState currentStateInput, FAction& selectedAction) {
+	// THIS FUNCTION SHOULD NOT BE DOING THE SETTING HERE.......
+
+
+
+	// Iterate through the Q Table
+	for (FQTableEntry& Entry : qTable) {
+
+		if (Entry.State == currentStateInput) {
+
+			for (FAction& action : Entry.ActionsFromState) {
+
+				if (action == selectedAction) {
+					return action.Score;
 				}
 			}
+			// We have an entry for the current state, but no actions for that entry, so we have to add this one
+			TArray<FAction> actions = { selectedAction };
+			Entry.ActionsFromState = actions;
+			return -1.f;
 		}
 	}
 
-	// Because we can't properly instantiate the entire Q table given the number of possibilites of states for just 10 segments rows is 5^10, if we don't have it in the table, we give it an infinite score
-	// TODO: this might be a problem...
-	return FLT_MAX;;
+	// If we make it here, that means no Q table entry exists for this state, so we have to add it
+	TArray<FAction> actions = { selectedAction };
+	qTable.Add(FQTableEntry(currentStateInput, actions));
+
+	return -1.f;
 }
 
-float UReinforcementLearningAI::GetMinQValForState(FModelState state) {
 
-	float minVal = FLT_MAX;
-	// Iterate through the QTable array
-	for (FQTableEntry& Entry : qTable)
-	{
-		// Find the correct state in the table
-		if (Entry.State == state)
-		{
-			// Loop through actions and modify the minVal if a smaller one is found
-			for (FPointModificationAction action : Entry.ActionsFromState) {
-				if (action.score < minVal) {
-					minVal = action.score;
-				}
-			}
-		}
+// Function to retrieve the action with the minimum score for a given state
+FAction GetActionWithMinimumScore(FQTableEntry& entry) {
+
+	if (entry.ActionsFromState.Num() == 0) {
+		// Return a default action if the array is empty
+		return FAction();
 	}
-	return minVal;
-}
 
+	float MinScore = MAX_FLT;
+	FAction MinScoreAction = FAction();
 
-FPointModificationAction UReinforcementLearningAI::GetMinQValAction(FModelState state) {
-
-	float minVal = FLT_MAX;
-	FPointModificationAction outAction;
-
-	// Iterate through the QTable array
-	for (FQTableEntry& Entry : qTable)
-	{
-		// Find the correct state in the table
-		if (Entry.State == state)
-		{
-			// Loop through actions and modify the minVal if a smaller one is found
-			for (FPointModificationAction action : Entry.ActionsFromState) {
-				if (action.score < minVal) {
-					minVal = action.score;
-					outAction = action;
-				}
-			}
+	// Iterate through the actions in the array
+	for (FAction& Action : entry.ActionsFromState) {
+		// Check if the score of the current action is less than the minimum score, and make sure it's not a semi-initialized action
+		if ((Action.Score < MinScore) && (Action.Score != -1)) {
+			// Update the minimum score and corresponding action
+			MinScore = Action.Score;
+			MinScoreAction = Action;
 		}
 	}
 
-	FString LapTimeString = FString::Printf(TEXT("Finding minimum action from state..."));
-	GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Orange, LapTimeString);
-
-	return outAction;
+	// Return the action with the minimum score
+	return MinScoreAction;
 }
 
 
-void UReinforcementLearningAI::UpdateQTable(FModelState currentStateInput, FPointModificationAction selectedAction, int32 score, FModelState nextState, double alpha, double gamma) {
+void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& selectedAction, float score, FState nextState, double alpha, double gamma) {
 
 	// WEEEEEE NEED TO INTIALIZE Q TABLE FIRST !!!!!!! //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	  // Get the Q-value of the current state-action pair
+	 // Get the Q-value of the current state-action pair
 
+	// We update our selected Actions score
+	selectedAction.Score = score;
 
 	float oldValue = FindQValueWithMatchingStateAndAction(currentStateInput, selectedAction);
 
-	float minValue = GetMinQValForState(nextState);
+	// We didn't have an entry for this state-action pair, so we created one instead
+	if (oldValue == -1.f) {
+		return;
+	}
+
+	float minValue = -1;
+	// Find the minimum value available from this state
+	for (FQTableEntry& entry : qTable) {
+		if (entry.State == nextState) {
+			FAction minValueAction = GetActionWithMinimumScore(entry);
+			
+			// NOT SURE ABOUT SOME OF THIS.........
+			if (!minValueAction.bIsInitialized) {
+				return;
+			}
+
+			minValue = minValueAction.Score;
+		}
+	}
+
+	// Not sure about this either...
+	if (minValue == -1) {
+		return;
+	}
 
 	float newVal = oldValue + alpha * (score + gamma * minValue - oldValue);
 
-	// Iterate through the QTable array
-	for (FQTableEntry& Entry : qTable)
-	{
-		// Find the correct state in the table
-		if (Entry.State == currentStateInput)
-		{
-			// Loop through actions and modify the minVal if a smaller one is found
-			for (FPointModificationAction action : Entry.ActionsFromState) {
-
+	// Iterate through the QTable array to update our Q value
+	for (FQTableEntry entry : qTable) {
+		if (entry.State == currentStateInput) {
+			for (FAction& action : entry.ActionsFromState) {
 				if (action == selectedAction) {
-
-					action.score = newVal;
-					// Yah, we updated our value
-					return;
+					action.Score = newVal;
 				}
 			}
-			// If we got here, that means we do have an entry for this state, but not for this select action, so we add the new action
-			FPointModificationAction newAction = selectedAction;
-			newAction.score = score;
-			Entry.ActionsFromState.Add(newAction);
-
 		}
 	}
-	// Looks like we don't have an entry yet for this currentStateInput and select action -> let's make one
-	FPointModificationAction newAction = selectedAction;
-	newAction.score = score;
-	TArray<FPointModificationAction> actions;
-	actions.Add(newAction);
 
-	FQTableEntry entry = FQTableEntry(currentStateInput, actions);
+
+//	float oldValue = FindQValueWithMatchingStateAndAction(currentStateInput, selectedAction);
+//
+//	float minValue = GetMinQValForState(nextState);
+//
+//	float newVal = oldValue + alpha * (score + gamma * minValue - oldValue);
+//
+//	// Iterate through the QTable array
+//	for (FQTableEntry& Entry : qTable)
+//	{
+//		// Find the correct state in the table
+//		if (Entry.State == currentStateInput)
+//		{
+//			// Loop through actions and modify the minVal if a smaller one is found
+//			for (FPointModificationAction action : Entry.ActionsFromState) {
+//
+//				if (action == selectedAction) {
+//
+//					action.score = newVal;
+//					// Yah, we updated our value
+//					return;
+//				}
+//			}
+//			// If we got here, that means we do have an entry for this state, but not for this select action, so we add the new action
+//			FPointModificationAction newAction = selectedAction;
+//			newAction.score = score;
+//			Entry.ActionsFromState.Add(newAction);
+//
+//		}
+//	}
+//	// Looks like we don't have an entry yet for this currentStateInput and select action -> let's make one
+//	FPointModificationAction newAction = selectedAction;
+//	newAction.score = score;
+//	TArray<FPointModificationAction> actions;
+//	actions.Add(newAction);
+//
+//	FQTableEntry entry = FQTableEntry(currentStateInput, actions);
+//}
 }
 
 
-FPointModificationAction UReinforcementLearningAI::GenerateRandomAction(TArray<int32> availablePointIndiciesForSegment) {
 
-	FString LapTimeString = FString::Printf(TEXT("Generating random action..."));
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, LapTimeString);
+TArray<FAction> UReinforcementLearningAI::GeneratePossibleActionFromState(FState currentState) {
 
-	// Calculate the number of subsections (a subsection is a group of 5 points within a given segment)
-	int32 NumSubsections = availablePointIndiciesForSegment.Num() / 5;
+	TArray<FAction> outputActions;
 
-	// Randomly select one subsection
-	int32 RandomSubsectionIndex = FMath::RandRange(0, NumSubsections - 1);
+	// We iterate through the available segments
+	for (FRacingLineForSegment SegmentRacingLine : currentState.SegmentRacingLines)
+	{
+		// Go through 5 possible racing lines (even though there are only 4 available ones to choose from)
+		for (int32 i = 0; i < 5; i += 1)
+		{
+			// We check to make sure we aren't going to add the racing line already in use
+			if (i != SegmentRacingLine.RacingLineIndex) {
+				// Remeber, the newly initialized Faction has a score of -1 (which means we havne't set a score yet)
+				FAction newAction = FAction(SegmentRacingLine.SegmentIndex, i);
+				outputActions.Add(newAction);
+			}
+		}
+	}
+	return outputActions;
+}
 
-	// Calculate the start index of the chosen subsection
-	int32 StartIndex = RandomSubsectionIndex * 5;
 
-	// Randomly select one point within the chosen subsection
-	int32 RandomPointIndexToReplace = FMath::RandRange(StartIndex, StartIndex + 4);
+FAction UReinforcementLearningAI::GenerateRandomAction(FState currentState) {
 
-	// Randomly point index to replace with new one
-	int32 RandomPointIndexNew = FMath::RandRange(StartIndex, StartIndex + 4);
+	FString stringToUse = FString::Printf(TEXT("Generating random action..."));
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, stringToUse);
 
-	FPointModificationAction action = FPointModificationAction(RandomPointIndexToReplace, RandomPointIndexNew);
-	
-	return action;
+	// Gather our possible actions from this state
+	TArray<FAction> possibleActions = GeneratePossibleActionFromState(currentState);
 
+	// Randomly pick an index
+	int32 RandomSubsectionIndex = FMath::RandRange(0, possibleActions.Num() - 1);
+
+	return possibleActions[RandomSubsectionIndex];
 }
 
 
 
 
-FPointModificationAction UReinforcementLearningAI::EpsilonGreedyPolicyGenerateAction(FModelState currentStateInput, double epsilon, TArray<int32> availablePointIndiciesForSegment) {
+FAction UReinforcementLearningAI::EpsilonGreedyPolicyGenerateAction(FState currentStateInput, double epsilon) {
 
 	// Generate a random number between 0 and 1
 	float randomValue = FMath::FRand();
 
 	// Check if the random value is less than epsilon (explore)
 	if (randomValue < epsilon) {
-		FPointModificationAction action = GenerateRandomAction(availablePointIndiciesForSegment);
+		FAction action = GenerateRandomAction(currentStateInput);
 		return action;
-	}
-	else { 
-		FPointModificationAction action = GetMinQValAction(currentStateInput);
+	} 
+	else {
 
-		// We don't seem to have anything in our table of value, let's generate a random point instead!
-		if (!action.IsInitialized()) {
+		FString stringToUse = FString::Printf(TEXT("Finding previous action..."));
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, stringToUse);
 
-			FString LapTimeString = FString::Printf(TEXT("Failed to find minimum action, initializing random action from state..."));
-			GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Orange, LapTimeString);
+		FAction MinScoreAction = FAction();
 
-			action = GenerateRandomAction(availablePointIndiciesForSegment);
+		// Loop through our Q table to find the current state we are in
+		for (FQTableEntry entry : qTable) {
+			if (entry.State == currentStateInput) {
+				MinScoreAction = GetActionWithMinimumScore(entry);
+			}
+		}
+
+		// If we couldn't find anything...
+		if (!MinScoreAction.bIsInitialized) {
+			FAction action = GenerateRandomAction(currentStateInput);
 			return action;
 		}
-		return action;
-	}
 
+		return MinScoreAction;
+	}
 }
