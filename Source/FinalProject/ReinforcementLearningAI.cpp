@@ -69,7 +69,7 @@ TArray<FVector> UReinforcementLearningAI::getModelGeneratedSplinePoints(TArray<F
 float UReinforcementLearningAI::FindQValueWithMatchingStateAndAction(FState currentStateInput, FAction& selectedAction) {
 	// THIS FUNCTION SHOULD NOT BE DOING THE SETTING HERE.......
 
-
+	// !!!!!!!!!!!!!!!!!!!!
 
 	// Iterate through the Q Table
 	for (FQTableEntry& Entry : qTable) {
@@ -83,8 +83,8 @@ float UReinforcementLearningAI::FindQValueWithMatchingStateAndAction(FState curr
 				}
 			}
 			// We have an entry for the current state, but no actions for that entry, so we have to add this one
-			TArray<FAction> actions = { selectedAction };
-			Entry.ActionsFromState = actions;
+			//TArray<FAction> actions = { selectedAction };
+			Entry.ActionsFromState.Add(selectedAction);
 			return -1.f;
 		}
 	}
@@ -97,7 +97,7 @@ float UReinforcementLearningAI::FindQValueWithMatchingStateAndAction(FState curr
 }
 
 
-// Function to retrieve the action with the minimum score for a given state
+// Function to retrieve the action with the minimum score from a given state
 FAction GetActionWithMinimumScore(FQTableEntry& entry) {
 
 	if (entry.ActionsFromState.Num() == 0) {
@@ -118,12 +118,19 @@ FAction GetActionWithMinimumScore(FQTableEntry& entry) {
 		}
 	}
 
+	// If the actions are all MAX_FLT scores, we still want to pass that value back to be used, so we set the score of our default action as such
+	if (MinScore == MAX_FLT) {
+		MinScoreAction.bIsInitialized = true;
+		MinScoreAction.Score = MAX_FLT;
+	}
+
 	// Return the action with the minimum score
 	return MinScoreAction;
 }
 
 
 void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& selectedAction, float score, FState nextState, double alpha, double gamma) {
+
 
 	// WEEEEEE NEED TO INTIALIZE Q TABLE FIRST !!!!!!! //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	 // Get the Q-value of the current state-action pair
@@ -144,7 +151,7 @@ void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& s
 		if (entry.State == nextState) {
 			FAction minValueAction = GetActionWithMinimumScore(entry);
 			
-			// NOT SURE ABOUT SOME OF THIS.........
+			// THIS WON"T BE HIT ANYMORE unless there are no action from this state yet)
 			if (!minValueAction.bIsInitialized) {
 				return;
 			}
@@ -153,8 +160,8 @@ void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& s
 		}
 	}
 
-	// Not sure about this either...
 	if (minValue == -1) {
+		// THIS SHOULD NEVER BE HIT...
 		return;
 	}
 
@@ -170,6 +177,7 @@ void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& s
 			}
 		}
 	}
+
 
 
 //	float oldValue = FindQValueWithMatchingStateAndAction(currentStateInput, selectedAction);
@@ -211,6 +219,34 @@ void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& s
 //}
 }
 
+// For visualization purposes
+FState UReinforcementLearningAI::GetBestState() {
+
+	// Find the minimum value available from this state
+	float MinScore = MAX_FLT;
+	FState MinState;
+
+	for (FQTableEntry& entry : qTable) {
+		for (FAction action : entry.ActionsFromState) {
+			if (action.bIsInitialized) {
+				if (action.Score < MinScore) {
+					MinScore = action.Score;
+					MinState = entry.State;
+
+					for (FRacingLineForSegment& rLine : MinState.SegmentRacingLines) {
+						if (rLine.SegmentIndex == action.SegmentToModify) {
+							rLine.RacingLineIndex = action.NewRacingLineIndex;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return MinState;
+
+}
+
 
 
 TArray<FAction> UReinforcementLearningAI::GeneratePossibleActionFromState(FState currentState) {
@@ -238,7 +274,7 @@ TArray<FAction> UReinforcementLearningAI::GeneratePossibleActionFromState(FState
 FAction UReinforcementLearningAI::GenerateRandomAction(FState currentState) {
 
 	FString stringToUse = FString::Printf(TEXT("Generating random action..."));
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, stringToUse);
+	GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Orange, stringToUse);
 
 	// Gather our possible actions from this state
 	TArray<FAction> possibleActions = GeneratePossibleActionFromState(currentState);
@@ -264,8 +300,8 @@ FAction UReinforcementLearningAI::EpsilonGreedyPolicyGenerateAction(FState curre
 	} 
 	else {
 
-		FString stringToUse = FString::Printf(TEXT("Finding previous action..."));
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange, stringToUse);
+		FString stringToUse = FString::Printf(TEXT("Finding previous action from this state..."));
+		GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Orange, stringToUse);
 
 		FAction MinScoreAction = FAction();
 
@@ -276,8 +312,8 @@ FAction UReinforcementLearningAI::EpsilonGreedyPolicyGenerateAction(FState curre
 			}
 		}
 
-		// If we couldn't find anything...
-		if (!MinScoreAction.bIsInitialized) {
+		// If we couldn't find anything action OR the action was set to float max because it hit something so we would want to generate a new random one anyway...
+		if (!MinScoreAction.bIsInitialized || MinScoreAction.Score == MAX_FLT) {
 			FAction action = GenerateRandomAction(currentStateInput);
 			return action;
 		}

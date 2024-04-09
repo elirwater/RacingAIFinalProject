@@ -4,6 +4,7 @@
 #include "SimulationControlScript.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "DrawDebugHelpers.h"
 
 
 
@@ -23,8 +24,6 @@ void USimulationControlScript::BeginPlay()
 {
 
 	Super::BeginPlay();
-
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1); // Set simulation speed to 20x
 
 
 	FTimerHandle TimerHandle;
@@ -58,7 +57,7 @@ void USimulationControlScript::runLap() {
 
 
 	TArray<FVector> modelGeneratedPoints;
-	TArray<int32> currSegmentIndicies = TArray<int32>{0};
+	TArray<int32> currSegmentIndicies = TArray<int32>{0, 1};
 
 	TArray<TArray<FVector>> availableAINavPointsBySegment;
 
@@ -83,7 +82,7 @@ void USimulationControlScript::runLap() {
 
 
 		// Select an action using epsilon-greedy policy
-		selectedAction = ReinforcementLearningAI->EpsilonGreedyPolicyGenerateAction(currentState, 0.1);
+		selectedAction = ReinforcementLearningAI->EpsilonGreedyPolicyGenerateAction(currentState, 0.6);
 
 
 		// Now we perform the action by first modifying the state and then generating the spline and running it
@@ -105,6 +104,22 @@ void USimulationControlScript::runLap() {
 			for (int32 pointIndex : modelGeneratedPointsIndexesForThisSegment) {
 				modelGeneratedPoints.Add(availableAINavPointsBySegment[line.SegmentIndex][pointIndex]);
 			}
+		}
+
+
+		// FOR VISUALIZATION OF THE BEST STATE -> ACTION POINTS:
+		// Now we figure out what the racing line indexes correspond to as actual track points in space
+		FState bestActionState = ReinforcementLearningAI->GetBestState();
+		TArray<FVector> bestStatePoints;
+
+		for (FRacingLineForSegment line : bestActionState.SegmentRacingLines) {
+			TArray<int32> modelGeneratedPointsIndexesForThisSegment = findRacingLineForThisSegment(availableAINavPointsBySegment, line.SegmentIndex, line.RacingLineIndex);
+			for (int32 pointIndex : modelGeneratedPointsIndexesForThisSegment) {
+				bestStatePoints.Add(availableAINavPointsBySegment[line.SegmentIndex][pointIndex]);
+			}
+		}
+		for (FVector point : bestStatePoints) {
+			DrawDebugPoint(GetWorld(), point, 20.0f, FColor::Orange, false, 5.0f);
 		}
 	}
 

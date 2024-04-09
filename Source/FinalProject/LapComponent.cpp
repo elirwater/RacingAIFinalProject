@@ -63,6 +63,8 @@ void ULapComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 
     OverTimeChecker();
 
+    SpeedChecker();
+
 }
 
 
@@ -242,7 +244,7 @@ void ULapComponent::CompleteLap()
     LapState.State = ELapState::LapEnded;
 
     // Calculate lap time
-    lapTime = GetWorld()->TimeSeconds - StartTime;
+    lapTime = GetWorld()->GetTimeSeconds() - StartTime;
 
     // Print lap time when lap ends
     FString LapTimeString = FString::Printf(TEXT("LAP TIME: %.2f seconds"), lapTime);
@@ -265,11 +267,11 @@ void  ULapComponent::FailLap() {
     LapState.State = ELapState::LapEnded;
 
     // Set the lap time to be really high
-    lapTime = FLT_MAX;
+    lapTime = MAX_FLT;
 
     // Print lap time when lap ends
     FString LapTimeString = FString::Printf(TEXT("LAP TIME: %.2f seconds"), lapTime);
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, LapTimeString);
+    GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green, LapTimeString);
 
     // Stop the timer
     GetWorld()->GetTimerManager().ClearTimer(LapTimerHandle);
@@ -301,14 +303,36 @@ void ULapComponent::OutOfBoundsChecker() {
 // Called every tick to check if the AI has gone over it's alloted time, if so, the lap is failed
 void ULapComponent::OverTimeChecker() {
 
-    lapTime = GetWorld()->TimeSeconds - StartTime;
+    lapTime = GetWorld()->GetTimeSeconds() - StartTime;
 
 
-    if (lapTime > 50.f) {
+    if (lapTime > 45.f) {
         FString LapTimeString = FString::Printf(TEXT("OVERTIME FAIL"));
         GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, LapTimeString);
         FailLap();
     }
+
+}
+
+// Called every tick to check if the AI is stopped
+void ULapComponent::SpeedChecker() {
+
+    FVector CarVelocity = AICarPawn->GetVelocity();
+
+    // Get the forward vector of the AICarPawn
+    FVector CarForwardVector = AICarPawn->GetActorForwardVector();
+
+    // Project the velocity onto the forward vector
+    float ForwardSpeed = FVector::DotProduct(CarVelocity, CarForwardVector);
+
+    if (LapState.State == ELapState::LapInProgress) {
+        if (ForwardSpeed <= 10) {
+            FString LapTimeString = FString::Printf(TEXT("SPEED FAIL - CAR IS STOPPED"));
+            GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, LapTimeString);
+            FailLap();
+        }
+    }
+    
 
 }
 
@@ -320,11 +344,15 @@ void ULapComponent::RunLap() {
 
     if (AICarPawn && startLine) {
 
+
         // We set the lap state to not started
         LapState.State = ELapState::LapNotStarted;
 
         // Then we spawn teleport the AI car to the correct location on the start line
 
+        lapNumber += 1;
+        FString LapTimeString = FString::Printf(TEXT("COMMENCING LAP #  %.2f"), lapNumber);
+        GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Purple, LapTimeString);
         //AICarPawn->setWorldLocationAndRota(startLine->Bounds.GetBox().GetCenter(), false, nullptr, ETeleportType::TeleportPhysics);
 
 
@@ -340,6 +368,11 @@ void ULapComponent::RunLap() {
 
         // Teleport the AI car pawn to the center of the start line's bounding box without simulating physics
         AICarPawn->SetActorLocation(startLine->Bounds.GetBox().GetCenter(), false);
+
+        FQuat rotation = FQuat::Identity;
+        AICarPawn->SetActorRotation(rotation, ETeleportType::ResetPhysics);
+        AICarPawn->SetActorLocation(startLine->Bounds.GetBox().GetCenter(), false);
+        
 
         // Reset physics properties after teleportation
         if (AICarPawn->GetRootComponent())
@@ -357,8 +390,8 @@ void ULapComponent::RunLap() {
         }
 
 
-        // THen we set the start time
-        StartTime = GetWorld()->GetRealTimeSeconds();
+        // Then we set the start time
+        StartTime = GetWorld()->GetTimeSeconds();
 
         // Because the car will automatically follow the spline, the other functions are responsible for timing and completing the lap
 

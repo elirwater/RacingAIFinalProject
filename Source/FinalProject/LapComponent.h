@@ -149,4 +149,9 @@ public:
 	// Called every tick to check if the AI has gone over it's alloted time, if so, the lap is failed
 	void OverTimeChecker();
 
+	void SpeedChecker();
+
+
+	float lapNumber = 0;
+
 };

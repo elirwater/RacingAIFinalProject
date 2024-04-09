@@ -154,6 +154,7 @@ public:
 
 	float FindQValueWithMatchingStateAndAction(FState currentStateInput, FAction& selectedAction);
 
+	FState GetBestState();
 
 
 
