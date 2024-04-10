@@ -95,7 +95,6 @@ USTRUCT(BlueprintType)
 struct FQTableEntry {
 	GENERATED_BODY()
 
-	// A state 
 	FState State;
 
 	TArray<FAction> ActionsFromState;
@@ -129,31 +128,31 @@ public:
 	// Available AINavPoints -> set by retrieveAvailableAINAvPoints()
 	TArray<FVector> availableAINavPoints;
 
-	// Called by the controller to retrieve reinforcement learning model generated points (***or this iteration/epoch of the model***)
-	TArray<FVector> getModelGeneratedSplinePoints(TArray<FVector> currentSegmentPoints);
-
 
 	// Reference to the Splin that is set in the blueprint for this class
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actors")
 	USplineController* SplineComponent;
 
 
-
+	// Where the Q Table is stored
 	TArray<FQTableEntry> qTable;
 
-
-	// New stuff
+	// Generates a list of possible actions from this current state
 	TArray<FAction> GeneratePossibleActionFromState(FState currentState);
 
+	// Generates a random action given the current state
 	FAction GenerateRandomAction(FState currentState);
 
-
+	// Runs the greedy action generation (called by simulation controlller)
 	FAction EpsilonGreedyPolicyGenerateAction(FState currentState, double epsilon);
 
+	// Updates the Q table for a given action-state pair with the lap time score
 	void UpdateQTable(FState currentState, FAction& selectedAction, float score, FState nextState, double alpha, double gamma);
 
+	// Finds the best Q value from a current state-action pair
 	float FindQValueWithMatchingStateAndAction(FState currentStateInput, FAction& selectedAction);
 
+	// Retrieves the best state that is in the Q table
 	FState GetBestState();
 
 

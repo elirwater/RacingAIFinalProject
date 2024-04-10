@@ -74,6 +74,7 @@ public:
 		LapEnded UMETA(DisplayName = "Lap Ended")
 	};
 
+	// A struct to represent the current state of the lap
 	struct FLapState
 	{
 
@@ -102,8 +103,6 @@ public:
 
 	// Stores the current state of the lap
 	FLapState LapState;
-
-
 
 	// Stores the current state of whether or not the AI is on the start line
 	bool isAIOnStartLineBool = false;
@@ -142,16 +141,15 @@ public:
 	// OR if the lap time is greater than 1 min
 	void FailLap();
 
-
 	// Called every tick to check if the AI has wandered out of bounds, if so, the lap is failed
 	void OutOfBoundsChecker();
 
 	// Called every tick to check if the AI has gone over it's alloted time, if so, the lap is failed
 	void OverTimeChecker();
 
+	// Detects if the AI is moving to slowly or has crashed
 	void SpeedChecker();
 
-
+	// Store which lap we are on for debugging
 	float lapNumber = 0;
-
 };

@@ -23,25 +23,19 @@ USplineController::USplineController()
 }
 
 
-
 // Called when the game starts
 void USplineController::BeginPlay()
 {
 	Super::BeginPlay();
 
-    generateAIPathPointPossibilities();
+    // Generate all point possibilies
+    GenerateAIPathPointPossibilities();
 
+    // Visualize those points
     if (visualizeAvailableAINavPoints) {
         visualizeAINavPoints();
     }
 
-    // Temporary to spawn a path from the center path (could be used as the default spline path)
-    //spawnAIPathingSpline(centerPath);
-
-
-	// ...
-    //GetWorld()->GetTimerManager().SetTimer(AddPointTimerHandle, this, &USplineController::AddPointToSpline, 1.0f, true);
-	
 }
 
 // Visualizes the points that the AI can choose when creating it's navigation Spline
@@ -103,14 +97,7 @@ void ReverseArray(TArray<FLandscapeSplineInterpPoint>& Array) {
 }
 
 
-
-
-
-
-// Generates a list of available points that the AI can choose from when creating the splines of it's path
-// ALSO generates the perfect center path (which can be used as the default path)
-void USplineController::generateAIPathPointPossibilities() {
-
+void USplineController::GenerateAIPathPointPossibilities() {
 
     bool firstComponent = true;
 
@@ -190,27 +177,15 @@ void USplineController::generateAIPathPointPossibilities() {
 
                         currSegmentIndex = currSegmentIndex + 1;
                     }
-
-                  
                 }
                 firstComponent = false;
             }
         }
     }
-
 }
 
 
-
-
-
-
-
-
-
-
 void USplineController::AddPointToSpline() {
-
 
     // Get reference to the player character
     APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
@@ -221,15 +196,10 @@ void USplineController::AddPointToSpline() {
         APawn* PlayerPawn = PlayerController->GetPawn();
         if (PlayerPawn)
         {
-
-
             AActor* OwnerActor = GetOwner();
-
 
             // Use GetComponentByClass to get the spline component
             USplineComponent* SplineComponent = OwnerActor->GetComponentByClass<USplineComponent>();
-
-
 
             if (SplineComponent)
             {
@@ -256,27 +226,13 @@ void USplineController::AddPointToSpline() {
                 if (numSplinePoints > 2) {
                     SplineComponent->RemoveSplinePoint(0);
                 }
-
-     
             }
         }
     }
 }
 
 
-
-
-///////////// NEW STUFF FROM TONIGH T/////////////
-///////////// NEW STUFF FROM TONIGH T/////////////
-///////////// NEW STUFF FROM TONIGH T/////////////
-// note: need to break up these files into smaller bits //
-
-
-
-
-void USplineController::spawnAIPathingSpline(TArray<FVector> points) {
-
-
+void USplineController::SpawnAIPathingSpline(TArray<FVector> points) {
 
     AActor* OwnerActor = GetOwner();
 
@@ -285,7 +241,6 @@ void USplineController::spawnAIPathingSpline(TArray<FVector> points) {
 
     if (SplineComponent)
     {
-
         SplineComponent->SetSplinePoints(points, ESplineCoordinateSpace::World);
 
         // Manually set all point types (might be a better way to do this)
@@ -294,15 +249,8 @@ void USplineController::spawnAIPathingSpline(TArray<FVector> points) {
         for (int32 i = 0; i < points.Num(); ++i) {
             SplineComponent->SetSplinePointType(i, ESplinePointType::Curve);
         }
-
-
     }
-
-
 }
-
-
-
 
 
 // Get's the available nav AI points for the various AI models that need them
@@ -315,19 +263,8 @@ TArray<TArray<FVector>> USplineController::getAvailableAINavPointsBySegment() {
     return availableAINavPointsBySegment;
 }
 
-
-
-///////////// NEW STUFF FROM TONIGH T/////////////
-///////////// NEW STUFF FROM TONIGH T/////////////
-///////////// NEW STUFF FROM TONIGH T/////////////
-
-
-
-// Called every frame
 void USplineController::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-    
 }
 

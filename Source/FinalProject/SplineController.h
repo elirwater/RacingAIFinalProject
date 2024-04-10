@@ -20,27 +20,21 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
-	FTimerHandle AddPointTimerHandle;
-
-	FVector prevSplinePoint;
-
+	// A list of all the points that the spline can conform to
 	TArray<FVector> availableAINavPoints;
 
+	// The center path / racing line for the points
 	TArray<FVector> centerPath;
 
-
+	// Which points exist for each segment
 	TArray<TArray<FVector>> availableAINavPointsBySegment;
 
+	// Generates a list of available points that the AI can choose from when creating the splines of it's path
+	// ALSO generates the perfect center path (which can be used as the default path)
+	void GenerateAIPathPointPossibilities();
 
-	void generateAIPathPointPossibilities();
-
+	// Visiualizes all the points avaialble for the spline to conform to
 	void visualizeAINavPoints();
-
-	
-
-	
-
-
 
 public:	
 	// Called every frame
@@ -54,10 +48,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	int32 visualizeSpecificSegment;
 
+	// Returns the available Nav points (in better protected OOD style - I didnt' have time to do this for everything)
 	TArray<FVector> getAvailableAINavPoints();
 
 	TArray<TArray<FVector>> getAvailableAINavPointsBySegment();
 
-	void spawnAIPathingSpline(TArray<FVector> points);
+	// Actually spawn the spline into the world given a list of points
+	void SpawnAIPathingSpline(TArray<FVector> points);
 		
 };

@@ -14,16 +14,12 @@
 #include "Engine/StaticMeshActor.h"
 
 
-
-
 // Sets default values for this component's properties
 ULapComponent::ULapComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
-	// ...
 }
 
 
@@ -41,8 +37,6 @@ void ULapComponent::BeginPlay()
         visualizeAllAIBoundingBoxes();
     }
 }
-
-
 
 
 // Called every frame
@@ -103,7 +97,6 @@ void ULapComponent::visualizeAllAIBoundingBoxes() {
         FBox startLineBoundingBox = startLine->Bounds.GetBox();
         DrawDebugBox(GetWorld(), startLineBoundingBox.GetCenter(), startLineBoundingBox.GetExtent(), FColor::Blue, true, 0, 10);
     }
-
 }
 
 
@@ -134,8 +127,6 @@ void ULapComponent::visualizeCurrentAIBoundingBox() {
 }
 
 
-
-
 void ULapComponent::generateAIBoundingBoxes() {
     bool firstComponent = true;
 
@@ -151,7 +142,6 @@ void ULapComponent::generateAIBoundingBoxes() {
             {
                 // Silly thing so we can avoid the first constructor spline segment that I can't seem to delete or find
                 if (!firstComponent) {
-
 
                     // Need to make this weird de-referencing array to add the segments because otherwise they are protected and we can't work with them
                     TArray< TWeakObjectPtr<ULandscapeSplineSegment> > Segments;
@@ -172,7 +162,6 @@ void ULapComponent::generateAIBoundingBoxes() {
                         // We grab the boundaries for this segment of the landscape spline
                         FBox SplineBounds = Segment->GetBounds();
 
-
                         // Transform the box to world space
                         FVector WorldCenter = SplinesComponent->GetComponentTransform().TransformPosition(SplineBounds.GetCenter());
                         FVector BoxExtent = SplineBounds.GetExtent();
@@ -181,7 +170,6 @@ void ULapComponent::generateAIBoundingBoxes() {
 
                         AIBoundingBoxes.Add(AdjustedBox);
                     }
-
                 }
                 firstComponent = false;
             }
@@ -231,7 +219,6 @@ void ULapComponent::UpdateAILapState()
         CompleteLap();
     }
 
-
     // Update the previous state variable for the next tick
     bWasAIOnStartLine = bIsAIOnStartLineNow;
 }
@@ -255,7 +242,6 @@ void ULapComponent::CompleteLap()
 
     //Triggers the execution of all functions bound to the delegate (which is the HandleLapCompleted function in the SimulationController)
     OnLapCompletedDelegate.Broadcast();
-    
 }
 
 
@@ -305,7 +291,6 @@ void ULapComponent::OverTimeChecker() {
 
     lapTime = GetWorld()->GetTimeSeconds() - StartTime;
 
-
     if (lapTime > 45.f) {
         FString LapTimeString = FString::Printf(TEXT("OVERTIME FAIL"));
         GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, LapTimeString);
@@ -332,18 +317,13 @@ void ULapComponent::SpeedChecker() {
             FailLap();
         }
     }
-    
-
 }
-
-
 
 
 // Runs the execution of 1 AI Lap
 void ULapComponent::RunLap() {
 
     if (AICarPawn && startLine) {
-
 
         // We set the lap state to not started
         LapState.State = ELapState::LapNotStarted;
@@ -388,13 +368,8 @@ void ULapComponent::RunLap() {
                 RootPrimitiveComponent->SetSimulatePhysics(true);
             }
         }
-
-
         // Then we set the start time
         StartTime = GetWorld()->GetTimeSeconds();
-
-        // Because the car will automatically follow the spline, the other functions are responsible for timing and completing the lap
-
     }
 }
 

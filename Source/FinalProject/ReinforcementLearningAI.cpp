@@ -9,67 +9,26 @@ UReinforcementLearningAI::UReinforcementLearningAI()
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
-	// ...
 }
 
 
-// Called when the game starts
 void UReinforcementLearningAI::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ...
 	
 }
 
 
-// Called every frame
 void UReinforcementLearningAI::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
-}
-
-
-
-// Reference to the Splin that is set in the blueprint for this class
-TArray<FVector> UReinforcementLearningAI::getModelGeneratedSplinePoints(TArray<FVector> segmentPoints) {
-	// TEMPORARY IMPLEMENTATION TO TEST 
-	// NORMALLY, THIS WOULD RETRIEVE THIS ITERATIONS OF THE MODELS GENERATED POINTS
-	//////////////////////////////////////////////////////////////////////////////
-
-
-	// Populate the array with your points...
-
-	// Define the array to store the selected points
-	TArray<FVector> ModelGeneratedPath;
-
-	// Iterate through the array of FVector points
-	for (int32 i = 0; i < segmentPoints.Num(); i += 5)
-	{
-		// Check if there are at least 5 points remaining
-		if (i + 5 <= segmentPoints.Num())
-		{
-			// Select a random index from the current group of 5 points
-			int32 RandomIndex = FMath::RandRange(i, i + 4);
-
-			// Add the selected point to the ModelGeneratedPath
-			ModelGeneratedPath.Add(segmentPoints[RandomIndex]);
-		}
-	}
-
-	return ModelGeneratedPath;
 
 }
 
 
 
 float UReinforcementLearningAI::FindQValueWithMatchingStateAndAction(FState currentStateInput, FAction& selectedAction) {
-	// THIS FUNCTION SHOULD NOT BE DOING THE SETTING HERE.......
-
-	// !!!!!!!!!!!!!!!!!!!!
 
 	// Iterate through the Q Table
 	for (FQTableEntry& Entry : qTable) {
@@ -93,6 +52,7 @@ float UReinforcementLearningAI::FindQValueWithMatchingStateAndAction(FState curr
 	TArray<FAction> actions = { selectedAction };
 	qTable.Add(FQTableEntry(currentStateInput, actions));
 
+	// Negative 1 means unintialized 
 	return -1.f;
 }
 
@@ -131,10 +91,6 @@ FAction GetActionWithMinimumScore(FQTableEntry& entry) {
 
 void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& selectedAction, float score, FState nextState, double alpha, double gamma) {
 
-
-	// WEEEEEE NEED TO INTIALIZE Q TABLE FIRST !!!!!!! //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	 // Get the Q-value of the current state-action pair
-
 	// We update our selected Actions score
 	selectedAction.Score = score;
 
@@ -151,7 +107,6 @@ void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& s
 		if (entry.State == nextState) {
 			FAction minValueAction = GetActionWithMinimumScore(entry);
 			
-			// THIS WON"T BE HIT ANYMORE unless there are no action from this state yet)
 			if (!minValueAction.bIsInitialized) {
 				return;
 			}
@@ -161,10 +116,10 @@ void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& s
 	}
 
 	if (minValue == -1) {
-		// THIS SHOULD NEVER BE HIT...
 		return;
 	}
 
+	// Our updated Q-learning value for this state-action pair
 	float newVal = oldValue + alpha * (score + gamma * minValue - oldValue);
 
 	// Iterate through the QTable array to update our Q value
@@ -177,55 +132,16 @@ void UReinforcementLearningAI::UpdateQTable(FState currentStateInput, FAction& s
 			}
 		}
 	}
-
-
-
-//	float oldValue = FindQValueWithMatchingStateAndAction(currentStateInput, selectedAction);
-//
-//	float minValue = GetMinQValForState(nextState);
-//
-//	float newVal = oldValue + alpha * (score + gamma * minValue - oldValue);
-//
-//	// Iterate through the QTable array
-//	for (FQTableEntry& Entry : qTable)
-//	{
-//		// Find the correct state in the table
-//		if (Entry.State == currentStateInput)
-//		{
-//			// Loop through actions and modify the minVal if a smaller one is found
-//			for (FPointModificationAction action : Entry.ActionsFromState) {
-//
-//				if (action == selectedAction) {
-//
-//					action.score = newVal;
-//					// Yah, we updated our value
-//					return;
-//				}
-//			}
-//			// If we got here, that means we do have an entry for this state, but not for this select action, so we add the new action
-//			FPointModificationAction newAction = selectedAction;
-//			newAction.score = score;
-//			Entry.ActionsFromState.Add(newAction);
-//
-//		}
-//	}
-//	// Looks like we don't have an entry yet for this currentStateInput and select action -> let's make one
-//	FPointModificationAction newAction = selectedAction;
-//	newAction.score = score;
-//	TArray<FPointModificationAction> actions;
-//	actions.Add(newAction);
-//
-//	FQTableEntry entry = FQTableEntry(currentStateInput, actions);
-//}
 }
 
-// For visualization purposes
+
 FState UReinforcementLearningAI::GetBestState() {
 
 	// Find the minimum value available from this state
 	float MinScore = MAX_FLT;
 	FState MinState;
 
+	// Loop through every entry in the Q table, and find the best action score, and then update the state based on that score and return it
 	for (FQTableEntry& entry : qTable) {
 		for (FAction action : entry.ActionsFromState) {
 			if (action.bIsInitialized) {
@@ -242,9 +158,7 @@ FState UReinforcementLearningAI::GetBestState() {
 			}
 		}
 	}
-
 	return MinState;
-
 }
 
 
@@ -261,7 +175,7 @@ TArray<FAction> UReinforcementLearningAI::GeneratePossibleActionFromState(FState
 		{
 			// We check to make sure we aren't going to add the racing line already in use
 			if (i != SegmentRacingLine.RacingLineIndex) {
-				// Remeber, the newly initialized Faction has a score of -1 (which means we havne't set a score yet)
+				// Remember, the newly initialized Faction has a score of -1 (which means we havne't set a score yet)
 				FAction newAction = FAction(SegmentRacingLine.SegmentIndex, i);
 				outputActions.Add(newAction);
 			}
